@@ -95,7 +95,6 @@ class DecisionTree():
     '''
     def fit(self, X_train: np.array, y_train: np.array):
         train_data = np.concatenate((X_train, np.reshape(y_train,(-1,1))),axis = 1)
-        print(type(train_data))
 
         self.tree = self.build_tree(data=train_data, curr_depth=0)
 
@@ -115,6 +114,7 @@ class DecisionTree():
             return self.predict_one_sample(x, tree.left)
         else:
             return self.predict_one_sample(x, tree.right)
+        
         
 
 
