@@ -12,3 +12,10 @@ class TreeNode():
         self.right = None
 
         self.label = Counter(data[:, -1]).most_common()[0][0]
+
+    def print(self, lables: list):
+        if lables.any() == None:
+            print(f'split on feature #{self.f_idx} with < {self.f_val}  label if ended here is: {self.label}',end='')
+        else:
+            print(f'split on {lables[self.f_idx]} with < {self.f_val}  label if ended here is: {self.label}',end='')
+

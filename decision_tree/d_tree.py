@@ -2,6 +2,7 @@ from collections import Counter
 import math
 import numpy as np
 from tree_node import TreeNode
+import pandas as pd
 
 class DecisionTree():
 
@@ -9,22 +10,27 @@ class DecisionTree():
         self.max_depth = max_depth #mac depth the tree can be
         self.min_samples = min_samples #min samples allowed in leaf for us to continues to split on it 
         self.min_info_gain = min_info_gain #min info gain needed to continue to build the tree
+        self.labels = None
 
 
-    def entrpoy(self, all_labels: list) -> float:
+    def __entrpoy(self, all_labels: list) -> float:
         class_prob = [label_count / len(all_labels) for label_count in Counter(all_labels).values()] #this well calc the prob each class being randomly setlected so len(set) = 10, five 0's, five 1's then class_prob = [.5,.5]
         return -1 * sum([p * math.log(p,2) for p in class_prob])
+    
+    def __gini(self, all_labels: list) -> float:
+        class_prob = [label_count / len(all_labels) for label_count in Counter(all_labels).values()]
+        return sum(prob * (1 -  prob) for prob in class_prob)
     
 
     '''
     This will return the sum weighted entropy for two lists
     '''
-    def sets_entropy(self, splits: list) -> float:
+    def __sets_entropy(self, splits: list) -> float:
         total = sum([len(split) for split in splits])
-        return sum(len(split)/total * self.entrpoy(split) for split in splits) # we get the entropy of each split then weight it by its size compared to the total size of the splits then sum
+        return sum(len(split)/total * self.__entrpoy(split) for split in splits) # we get the entropy of each split then weight it by its size compared to the total size of the splits then sum
 
 
-    def split(self, data, f_index, threashold):
+    def __split(self, data, f_index, threashold):
         bool_mask = data[:, f_index] < threashold #this makes array where for each row it 0 or 1 if if meet or did not the threashhold
         left = data[bool_mask]
         right = data[~bool_mask]
@@ -34,7 +40,7 @@ class DecisionTree():
     We will take the greedy approach so,
     Given some data the best split will be on the feature that returns two sets with the lowest entrpoy.
     '''
-    def find_best_split(self, data: np.array) -> tuple:
+    def __find_best_split(self, data: np.array) -> tuple:
         
         b_s_entropy = float('inf')
 
@@ -46,10 +52,10 @@ class DecisionTree():
 
             for possible_threashold in f_values: #now split on each featue and check if its good
 
-                data_left, data_right = self.split(data, f_idx, possible_threashold)
+                data_left, data_right = self.__split(data, f_idx, possible_threashold)
 
                 if len(data_left) > 0 and len(data_right) > 0:
-                    split_entropy = self.sets_entropy([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
+                    split_entropy = self.__sets_entropy([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
 
                     if split_entropy < b_s_entropy: #the entropy of the set split we just found was better than all the other splits we have seen so far. 
                         b_s_entropy = split_entropy
@@ -64,11 +70,11 @@ class DecisionTree():
     '''
     builds the tree by recursivly doing the best (greedy) split until one of the stopping conditions have been met 
     '''
-    def build_tree(self, data: np.array, curr_depth: int) -> TreeNode:
+    def __build_tree(self, data: np.array, curr_depth: int) -> TreeNode:
         if curr_depth >= self.max_depth:
             return None
         
-        s_data_left, s_data_right, s_f_idx, s_f_val, s_entropy = self.find_best_split(data) #find the ebst split and info form the split
+        s_data_left, s_data_right, s_f_idx, s_f_val, s_entropy = self.__find_best_split(data) #find the ebst split and info form the split
 
         curr_entropy = self.entrpoy(data[:, -1]) #gets the entropy of the curr data 
         info_gain = curr_entropy - s_entropy #calc the information gain from the best split on this data
@@ -76,17 +82,14 @@ class DecisionTree():
         node = TreeNode(data, s_f_idx, s_f_val, info_gain)
 
         if info_gain <= 0 or info_gain < self.min_info_gain:
-            print('her info gain')
             return TreeNode(data, s_f_idx, s_f_val, info_gain)
 
         elif self.min_samples >= s_data_left.shape[0] or self.min_samples >= s_data_right.shape[0]:
-            print('her min sampls')
-
             return TreeNode(data, s_f_idx, s_f_val, info_gain)
         
         curr_depth += 1
-        node.left = self.build_tree(s_data_left, curr_depth)
-        node.right = self.build_tree(s_data_right, curr_depth)
+        node.left = self.__build_tree(s_data_left, curr_depth)
+        node.right = self.__build_tree(s_data_right, curr_depth)
 
         return node
     
@@ -96,17 +99,21 @@ class DecisionTree():
     def fit(self, X_train: np.array, y_train: np.array):
         train_data = np.concatenate((X_train, np.reshape(y_train,(-1,1))),axis = 1)
 
-        self.tree = self.build_tree(data=train_data, curr_depth=0)
+        self.tree = self.__build_tree(data=train_data, curr_depth=0)
 
     '''
     predicts for set samples
     '''
     def predict(self, X: np.array) -> np.array:
+        if isinstance(X, pd.DataFrame):
+            X = X.to_numpy()
         preds = [self.predict_one_sample(x, self.tree) for x in X]
         return preds
 
 
     def predict_one_sample(self, x: np.array, tree: TreeNode) -> np.array:
+        if isinstance(x, pd.DataFrame):
+            x = x.to_numpy() 
         if tree.left == None and tree.right == None:
             return tree.label
         split_index = tree.f_idx
@@ -114,6 +121,35 @@ class DecisionTree():
             return self.predict_one_sample(x, tree.left)
         else:
             return self.predict_one_sample(x, tree.right)
+        
+    def set_labels(self, lables):
+        self.labels = lables
+        
+    def print(self):
+        level = 0
+        print('    '*3,'level: ',level,end='     ')
+        self.tree.print(self.labels)
+        print('\n')
+        self.__print_helper(self.tree, level)
+
+
+    def __print_helper(self, node: TreeNode, level: int):
+        if node.left == None or node.right == None:
+            return
+        else:
+            level += 1
+            print('Level: ',level,'  LEFT: ',end='')
+            node.left.print(self.labels)
+            print('\n')
+            self.__print_helper(node.left, level)
+            print('level: ',level,'  RIGHT:  ',end='')
+            node.right.print(self.labels)
+            print('\n')
+            self.__print_helper(node.right, level)
+
+            print('\n\n')
+            #self.__print_helper(node.left, level)
+            
         
         
 
