@@ -46,6 +46,8 @@ class DecisionTree():
     '''
     def __find_best_split(self, data: np.array) -> tuple:
         criterion = self.criterion
+        data_left_best = []
+        data_right_best = []
         
         b_s = float('inf')
 
@@ -72,6 +74,11 @@ class DecisionTree():
                         best_f_idx = f_idx
                         best_f_val = possible_threashold
 
+        if data_left_best == []:
+            return data, data, -1, None, 0
+        elif data_right_best == []:
+            return data, data, -1, None, 0
+
         return data_left_best, data_right_best, best_f_idx, best_f_val, b_s
     
 
@@ -81,9 +88,10 @@ class DecisionTree():
     def __build_tree(self, data: np.array, curr_depth: int) -> TreeNode:
         criterion = self.criterion
 
+        ghgdh = 0
         if curr_depth >= self.max_depth:
             return None
-        
+
         s_data_left, s_data_right, s_f_idx, s_f_val, split_entropy_or_gini = self.__find_best_split(data) #find the ebst split and info form the split
 
         if criterion == 'entropy':
@@ -164,16 +172,3 @@ class DecisionTree():
             print('\n\n')
             #self.__print_helper(node.left, level)
             
-        
-        
-
-
-
-
-
-
-
-                
-
-
-
