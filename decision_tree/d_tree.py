@@ -6,12 +6,13 @@ import pandas as pd
 
 class DecisionTree():
 
-    def __init__(self, max_depth = 5, min_samples = 1, min_info_gain = 0.0, criterion = 'gini') -> None:
+    def __init__(self, max_depth = 5, min_samples = 1, min_info_gain = 0.0, criterion = 'gini', num_rand_features = -1) -> None:
         self.max_depth = max_depth #mac depth the tree can be
         self.min_samples = min_samples #min samples allowed in leaf for us to continues to split on it 
         self.min_info_gain = min_info_gain #min info gain needed to continue to build the tree
         self.labels = None
         self.criterion = criterion
+        self.num_rand_features = num_rand_features #the number of random features to concider when making split. so if n_r_f = 5 it will only concider 5 out of all time random features
 
 
     def __entrpoy(self, all_labels: list) -> float:
@@ -45,41 +46,83 @@ class DecisionTree():
     Given some data the best split will be on the feature that returns two sets with the lowest entrpoy.
     '''
     def __find_best_split(self, data: np.array) -> tuple:
-        criterion = self.criterion
-        data_left_best = []
-        data_right_best = []
-        
-        b_s = float('inf')
+        if self.num_rand_features == -1 or self.num_rand_feature > len(data[:, :-1][1]):
+            criterion = self.criterion
+            data_left_best = []
+            data_right_best = []
+            
+            b_s = float('inf')
 
-        features_data = data[:, :-1] #last col is labels
+            features_data = data[:, :-1] #last col is labels
 
-        for f_idx in range(len(features_data[1])):
-            f_values = features_data[:, f_idx] #all possibel values to split on
-            f_values = np.unique(f_values) #we jsut make shure the values are all uniqine if not then only need to check one
+            for f_idx in range(len(features_data[1])):
+                f_values = features_data[:, f_idx] #all possibel values to split on
+                f_values = np.unique(f_values) #we jsut make shure the values are all uniqine if not then only need to check one
 
-            for possible_threashold in f_values: #now split on each featue and check if its good
+                for possible_threashold in f_values: #now split on each featue and check if its good
 
-                data_left, data_right = self.__split(data, f_idx, possible_threashold)
+                    data_left, data_right = self.__split(data, f_idx, possible_threashold)
 
-                if len(data_left) > 0 and len(data_right) > 0:
-                    if criterion == 'entropy':   #entropy is the criterion
-                        split_gain = self.__sets_entropy([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
-                    else:    #entropy is the gini
-                        split_gain = self.__sets_gini([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
+                    if len(data_left) > 0 and len(data_right) > 0:
+                        if criterion == 'entropy':   #entropy is the criterion
+                            split_gain = self.__sets_entropy([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
+                        else:    #entropy is the gini
+                            split_gain = self.__sets_gini([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
 
-                    if split_gain < b_s: #the entropy of the set split we just found was better than all the other splits we have seen so far. 
-                        b_s = split_gain
-                        data_right_best = data_right
-                        data_left_best = data_left
-                        best_f_idx = f_idx
-                        best_f_val = possible_threashold
+                        if split_gain < b_s: #the entropy of the set split we just found was better than all the other splits we have seen so far. 
+                            b_s = split_gain
+                            data_right_best = data_right
+                            data_left_best = data_left
+                            best_f_idx = f_idx
+                            best_f_val = possible_threashold
 
-        if data_left_best == []:
-            return data, data, -1, None, 0
-        elif data_right_best == []:
-            return data, data, -1, None, 0
+            if data_left_best == []:
+                return data, data, -1, None, 0
+            elif data_right_best == []:
+                return data, data, -1, None, 0
 
-        return data_left_best, data_right_best, best_f_idx, best_f_val, b_s
+            return data_left_best, data_right_best, best_f_idx, best_f_val, b_s
+        else:
+            features_data = data[:, :-1] #last col is labels
+
+            features_idx_list = np.random.random_integers(0,len(features_data), size=self.num_rand_features)
+
+            criterion = self.criterion
+            data_left_best = []
+            data_right_best = []
+            
+            b_s = float('inf')
+
+            features_data = data[:, :-1] #last col is labels
+
+            for f_idx in features_idx_list:
+                f_values = features_data[:, f_idx] #all possibel values to split on
+                f_values = np.unique(f_values) #we jsut make shure the values are all uniqine if not then only need to check one
+
+                for possible_threashold in f_values: #now split on each featue and check if its good
+
+                    data_left, data_right = self.__split(data, f_idx, possible_threashold)
+
+                    if len(data_left) > 0 and len(data_right) > 0:
+                        if criterion == 'entropy':   #entropy is the criterion
+                            split_gain = self.__sets_entropy([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
+                        else:    #entropy is the gini
+                            split_gain = self.__sets_gini([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
+
+                        if split_gain < b_s: #the entropy of the set split we just found was better than all the other splits we have seen so far. 
+                            b_s = split_gain
+                            data_right_best = data_right
+                            data_left_best = data_left
+                            best_f_idx = f_idx
+                            best_f_val = possible_threashold
+
+            if data_left_best == []:
+                return data, data, -1, None, 0
+            elif data_right_best == []:
+                return data, data, -1, None, 0
+
+            return data_left_best, data_right_best, best_f_idx, best_f_val, b_s
+
     
 
     '''
