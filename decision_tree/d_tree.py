@@ -88,7 +88,6 @@ class DecisionTree():
     def __build_tree(self, data: np.array, curr_depth: int) -> TreeNode:
         criterion = self.criterion
 
-        ghgdh = 0
         if curr_depth >= self.max_depth:
             return None
 
