@@ -46,82 +46,41 @@ class DecisionTree():
     Given some data the best split will be on the feature that returns two sets with the lowest entrpoy.
     '''
     def __find_best_split(self, data: np.array) -> tuple:
-        if self.num_rand_features == -1 or self.num_rand_feature > len(data[:, :-1][1]):
+        def evaluate_split(data, features_idx_list):
             criterion = self.criterion
-            data_left_best = []
-            data_right_best = []
-            
+            data_left_best = np.empty(0)
+            data_right_best = np.empty(0)
             b_s = float('inf')
-
-            features_data = data[:, :-1] #last col is labels
-
-            for f_idx in range(len(features_data[1])):
-                f_values = features_data[:, f_idx] #all possibel values to split on
-                f_values = np.unique(f_values) #we jsut make shure the values are all uniqine if not then only need to check one
-
-                for possible_threashold in f_values: #now split on each featue and check if its good
-
-                    data_left, data_right = self.__split(data, f_idx, possible_threashold)
-
-                    if len(data_left) > 0 and len(data_right) > 0:
-                        if criterion == 'entropy':   #entropy is the criterion
-                            split_gain = self.__sets_entropy([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
-                        else:    #entropy is the gini
-                            split_gain = self.__sets_gini([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
-
-                        if split_gain < b_s: #the entropy of the set split we just found was better than all the other splits we have seen so far. 
-                            b_s = split_gain
-                            data_right_best = data_right
-                            data_left_best = data_left
-                            best_f_idx = f_idx
-                            best_f_val = possible_threashold
-
-            if data_left_best == []:
-                return data, data, -1, None, 0
-            elif data_right_best == []:
-                return data, data, -1, None, 0
-
-            return data_left_best, data_right_best, best_f_idx, best_f_val, b_s
-        else:
-            features_data = data[:, :-1] #last col is labels
-
-            features_idx_list = np.random.random_integers(0,len(features_data), size=self.num_rand_features)
-
-            criterion = self.criterion
-            data_left_best = []
-            data_right_best = []
             
-            b_s = float('inf')
-
-            features_data = data[:, :-1] #last col is labels
-
             for f_idx in features_idx_list:
-                f_values = features_data[:, f_idx] #all possibel values to split on
-                f_values = np.unique(f_values) #we jsut make shure the values are all uniqine if not then only need to check one
-
-                for possible_threashold in f_values: #now split on each featue and check if its good
-
-                    data_left, data_right = self.__split(data, f_idx, possible_threashold)
+                f_values = np.unique(data[:, f_idx])  # Ensure unique values
+                
+                for possible_threshold in f_values:
+                    data_left, data_right = self.__split(data, f_idx, possible_threshold)
 
                     if len(data_left) > 0 and len(data_right) > 0:
-                        if criterion == 'entropy':   #entropy is the criterion
-                            split_gain = self.__sets_entropy([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
-                        else:    #entropy is the gini
-                            split_gain = self.__sets_gini([data_left[:, -1], data_right[:, -1]])#we send in two lists each of the labels of each side of the split and calcualte there sum entropy
+                        if criterion == 'entropy':
+                            split_gain = self.__sets_entropy([data_left[:, -1], data_right[:, -1]])
+                        else:
+                            split_gain = self.__sets_gini([data_left[:, -1], data_right[:, -1]])
 
-                        if split_gain < b_s: #the entropy of the set split we just found was better than all the other splits we have seen so far. 
+                        if split_gain < b_s:
                             b_s = split_gain
                             data_right_best = data_right
                             data_left_best = data_left
                             best_f_idx = f_idx
-                            best_f_val = possible_threashold
+                            best_f_val = possible_threshold
 
-            if data_left_best == []:
+            if data_left_best.size == 0 or data_right_best.size == 0: #checks for odd bug where if the new data was a duplicate there the split was [], [dat1, data2] and then the if statemtn above was never entered causing issues
                 return data, data, -1, None, 0
-            elif data_right_best == []:
-                return data, data, -1, None, 0
-
             return data_left_best, data_right_best, best_f_idx, best_f_val, b_s
+
+        if self.num_rand_features == -1 or self.num_rand_features > len(data[0]) - 1:
+            features_idx_list = range(data.shape[1] - 1)
+        else:
+            features_idx_list = np.random.randint(0, data.shape[1] - 1, size=self.num_rand_features)
+
+        return evaluate_split(data, features_idx_list)
 
     
 
@@ -165,26 +124,33 @@ class DecisionTree():
 
         self.tree = self.__build_tree(data=train_data, curr_depth=0)
 
+    def predict_one_sample(self, x: np.array) -> int:
+        if isinstance(x, pd.DataFrame):
+            x = x.to_numpy()
+        pred = self.predict_helper(x, self.tree)
+        return pred
+
     '''
     predicts for set samples
     '''
     def predict(self, X: np.array) -> np.array:
         if isinstance(X, pd.DataFrame):
             X = X.to_numpy()
-        preds = [self.predict_one_sample(x, self.tree) for x in X]
+        preds = [self.predict_helper(x, self.tree) for x in X]
         return preds
 
 
-    def predict_one_sample(self, x: np.array, tree: TreeNode) -> np.array:
+    def predict_helper(self, x: np.array, tree: TreeNode) -> np.array:
         if isinstance(x, pd.DataFrame):
             x = x.to_numpy() 
         if tree.left == None and tree.right == None:
             return tree.label
         split_index = tree.f_idx
         if x[split_index] < tree.f_val:
-            return self.predict_one_sample(x, tree.left)
+            return self.predict_helper(x, tree.left)
         else:
-            return self.predict_one_sample(x, tree.right)
+            return self.predict_helper(x, tree.right)
+        
         
     def set_labels(self, lables):
         self.labels = lables
