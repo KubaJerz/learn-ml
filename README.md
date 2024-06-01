@@ -1,3 +1,3 @@
 # LearnML
 
-building out ML algorithms to better understand them
+building out ML algorithms from scratch to better understand them
