@@ -1,7 +1,7 @@
 from collections import Counter
 import math
 import numpy as np
-from tree_node import TreeNode
+from tree_node_class import TreeNode
 import pandas as pd
 
 class DecisionTree():
