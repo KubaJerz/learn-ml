@@ -82,10 +82,14 @@ while True:
                 print(f"\n\nModel: {response_without_tool_calls}\n\n")
 
             #3.b.2 then turn tool calls in raw json
+            print(f"\n\nTool Calls Detected: {tool_calls}\n\n")
             raw_json = [json.loads(tool_call) for tool_call in tool_calls]
 
             #3.b.3 then iterate over the raw json and extract the tool name and parameters
             for tool_data in raw_json:
+
+                print(f"\n\nTool Call Detected: {tool_data}\n\n")
+
                 tool_name = tool_data.get("name", "Unknown")
                 tool_parameters = tool_data.get("arguments", {})
 
